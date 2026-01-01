@@ -1,0 +1,1268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>To-Do</title>
+  <style>
+    :root{
+      --bg:#fff; --fg:#000;
+      --muted:rgba(0,0,0,.55);
+      --line:rgba(0,0,0,.18);
+      --line2:rgba(0,0,0,.28);
+      --radius:14px;
+      --shadow: 0 16px 48px rgba(0,0,0,.18);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--fg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      letter-spacing:.1px;
+      overscroll-behavior: contain;
+    }
+    .wrap{
+      max-width: 860px;
+      margin: 0 auto;
+      padding: clamp(14px, 3vw, 22px);
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+      min-height:100%;
+      overflow-x:hidden;
+    }
+
+    /* Sticky header */
+    .top{
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: var(--bg);
+      padding-top: 2px;
+      display:flex;
+      flex-direction:column;
+      gap: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .titleRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+    }
+    .title{
+      font-size: clamp(16px, 2.4vw, 20px);
+      font-weight: 650;
+      line-height: 1.1;
+      margin:0;
+      white-space:nowrap;
+    }
+    .dateRight{
+      font-size: 12px;
+      color: var(--muted);
+      user-select:none;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      text-align:right;
+      max-width: 62vw;
+    }
+
+    .metaRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+      min-height: 34px;
+    }
+    .leftMeta{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+      white-space:nowrap;
+      flex: 0 0 auto;
+      min-width: 54px;
+    }
+    .pill{
+      border:1px solid var(--line2);
+      border-radius: 999px;
+      padding: 2px 8px;
+      color: var(--fg);
+      font-variant-numeric: tabular-nums;
+      background: transparent;
+    }
+
+    .rightCluster{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap: 8px;
+      flex: 1 1 auto;
+      margin-left: auto;
+      white-space:nowrap;
+      max-width: 100%;
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+
+    .seg{
+      display:inline-flex;
+      border:1px solid var(--line2);
+      border-radius:999px;
+      overflow:hidden;
+      background: transparent;
+      white-space:nowrap;
+      flex: 0 0 auto;
+    }
+    .seg button{
+      border:0;
+      background:transparent;
+      color:var(--muted);
+      padding: clamp(6px, 1.7vw, 8px) clamp(10px, 2.2vw, 14px);
+      font-size: clamp(11px, 1.6vw, 12px);
+      cursor:pointer;
+      line-height:1;
+    }
+    .seg button.active{
+      color:var(--fg);
+      background: rgba(0,0,0,.06);
+    }
+
+    .iconbtn{
+      border:1px solid var(--line2);
+      background:transparent;
+      color:var(--fg);
+      border-radius:999px;
+      padding:7px 12px;
+      font-size:12px;
+      cursor:pointer;
+      line-height:1;
+      user-select:none;
+      flex: 0 0 auto;
+      white-space:nowrap;
+    }
+    .iconbtn:active{transform: translateY(1px);}
+
+    /* Composer: grid ensures Add never gets pushed off-screen */
+    .composer{
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+      align-items:stretch;
+      padding-top: 2px;
+      width: 100%;
+      min-width: 0;
+    }
+    .input{
+      width:100%;
+      min-width: 0;
+      border: 1px solid var(--line2);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      outline: none;
+      font-size: 16px; /* important for iOS: prevents auto-zoom */
+      line-height: 1.15;
+      background: transparent;
+      color: var(--fg);
+      min-height: 44px;
+    }
+    .input::placeholder{color: rgba(0,0,0,.35);}
+    .add{
+      width: 92px;
+      min-width: 92px;
+      border: 1px solid var(--line2);
+      border-radius: var(--radius);
+      background: var(--fg);
+      color: var(--bg);
+      font-size: 13px;
+      font-weight: 650;
+      cursor:pointer;
+      padding: 10px 12px;
+    }
+    .add:active{transform: translateY(1px);}
+    .add[disabled]{opacity:.35; cursor:not-allowed; transform:none;}
+
+    /* Shortcuts: no scroll, max 2 lines */
+    .hintRow{
+      display:flex;
+      justify-content:flex-start;
+      gap:10px;
+      align-items:flex-start;
+      margin-top:-2px;
+    }
+    .hint{
+      font-size:12px;
+      color:var(--muted);
+      user-select:none;
+      max-width: 100%;
+      line-height: 1.25;
+      display:-webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow:hidden;
+    }
+
+    /* List */
+    .list{
+      list-style:none;
+      padding:0;
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+      overscroll-behavior: contain;
+    }
+    .item{
+      display:flex;
+      align-items:flex-start;
+      gap: 10px;
+      padding: 10px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: transparent;
+      position: relative;
+    }
+
+    /* Grip */
+    .grip{
+      width: 40px;
+      height: 30px;
+      margin-top: 3px;
+      border-radius: 12px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      user-select:none;
+      color: rgba(0,0,0,.55);
+      border: 1px solid var(--line2);
+      background: rgba(0,0,0,.03);
+      cursor: grab;
+      flex: 0 0 auto;
+
+      touch-action: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .grip svg{width:18px;height:18px; display:block;}
+    .grip:active{ cursor: grabbing; }
+
+    .main{flex:1; min-width: 0;}
+    .text{
+      font-size: 14px;
+      line-height: 1.15;
+      margin:0;
+      word-break: break-word;
+    }
+    .text.done, .text.deleted{
+      color: rgba(0,0,0,.45);
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+    }
+    .text.done{ text-decoration-color: rgba(0,0,0,.35); }
+    .text.deleted{ text-decoration-color: rgba(0,0,0,.28); }
+
+    .meta{
+      margin-top:6px;
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      font-size: 11px;
+      color: var(--muted);
+      user-select:none;
+    }
+    .chip{
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 1px 6px;
+      white-space:nowrap;
+      cursor: default;
+    }
+    .chip.clickable{
+      cursor:pointer;
+      border-color: var(--line2);
+    }
+    .chip.clickable:active{transform: translateY(1px);}
+
+    .rowActions{
+      display:flex;
+      gap:8px;
+      opacity:0;
+      transition: opacity .12s ease;
+      flex: 0 0 auto;
+      margin-top: 1px;
+    }
+    .item:hover .rowActions,
+    .item:focus-within .rowActions{opacity:1;}
+
+    .ibtn{
+      width: 32px;
+      height: 32px;
+      border-radius: 11px;
+      border:1px solid var(--line2);
+      background: transparent;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      user-select:none;
+      flex: 0 0 auto;
+    }
+    .ibtn svg{width:16px;height:16px; display:block}
+    .ibtn:active{transform: translateY(1px);}
+
+    .item.dragging{
+      box-shadow: var(--shadow);
+      background: #fff;
+      border-color: rgba(0,0,0,.35);
+      transform: scale(1.01);
+      z-index: 5;
+    }
+
+    .empty{
+      border: 1px dashed var(--line2);
+      border-radius: var(--radius);
+      padding: 16px 12px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      user-select:none;
+    }
+
+    /* Overlays */
+    .overlay{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.55);
+      display:none;
+      align-items:flex-start;
+      justify-content:center;
+      padding: 16px;
+      z-index: 50;
+    }
+    .overlay.on{display:flex;}
+    .panel{
+      width:min(720px, 100%);
+      margin-top: 6vh;
+      background: var(--bg);
+      color: var(--fg);
+      border-radius: 18px;
+      border: 1px solid var(--line2);
+      overflow:hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+
+    /* Command palette */
+    .panelTop{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .cmd{
+      flex:1;
+      border: 1px solid var(--line2);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 16px; /* iOS zoom-safe */
+      outline:none;
+      background: transparent;
+      color: var(--fg);
+    }
+    .cmd::placeholder{color: rgba(0,0,0,.35);}
+    .cmdList{
+      max-height: 48vh;
+      overflow:auto;
+      padding: 8px;
+      display:flex;
+      flex-direction:column;
+      gap: 6px;
+    }
+    .cmdItem{
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .cmdItem:hover{background: rgba(0,0,0,.05);}
+    .cmdName{font-size:13px; font-weight:650;}
+    .cmdDesc{font-size:12px; color: var(--muted);}
+    .cmdKey{font-size:12px; color:var(--muted); white-space:nowrap;}
+
+    /* Details editor */
+    .panelHead{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .panelHead h2{margin:0; font-size: 13px; font-weight: 650; letter-spacing:.2px;}
+    .form{
+      padding: 12px;
+      display:flex;
+      flex-direction:column;
+      gap: 10px;
+    }
+    .label{
+      font-size: 11px;
+      color: var(--muted);
+      user-select:none;
+      margin-bottom: -6px;
+    }
+    .field{
+      border: 1px solid var(--line2);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 16px; /* iOS zoom-safe */
+      outline:none;
+      background: transparent;
+      color: var(--fg);
+      width: 100%;
+      appearance: none;
+    }
+    .field::placeholder{color: rgba(0,0,0,.35);}
+    .formActions{
+      display:flex;
+      justify-content:flex-end;
+      gap: 8px;
+      padding-top: 4px;
+    }
+    .ghost{
+      border:1px solid var(--line2);
+      background:transparent;
+      color:var(--fg);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 13px;
+      cursor:pointer;
+    }
+    .ghost:active{transform: translateY(1px);}
+
+    /* Zen mode (kept, but no header button) */
+    body.zen .composer,
+    body.zen .hintRow{ display:none; }
+    body.zen .top{ padding-bottom: 10px; }
+
+    @media (max-width: 520px){
+      .add{ width: 82px; min-width: 82px; }
+      .rowActions{opacity:1}
+      .panel{margin-top: 3vh;}
+      .dateRight{max-width: 56vw;}
+      .seg button{padding: 6px 10px;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header class="top" aria-label="Top Bar">
+      <div class="titleRow">
+        <h1 class="title">To-Do</h1>
+        <div class="dateRight" id="date"></div>
+      </div>
+
+      <div class="metaRow" aria-label="Meta Row">
+        <div class="leftMeta">
+          <span class="pill" id="stat">0/0</span>
+        </div>
+
+        <div class="rightCluster" aria-label="Right Controls">
+          <div class="seg" aria-label="Filter">
+            <button class="active" data-filter="active">Active</button>
+            <button data-filter="done">Done</button>
+            <button data-filter="deleted">Deleted</button>
+          </div>
+
+          <button class="iconbtn" id="cmdBtn" title="Commands (Ctrl/⌘ + K)">⌘K</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="composer" aria-label="Add Task">
+      <input id="in" class="input" autocomplete="off" placeholder="New task… (Enter)   #tag  @context" />
+      <button id="add" class="add" disabled>Add</button>
+    </div>
+
+    <div class="hintRow">
+      <div class="hint">
+        Shortcuts: Enter add · Double-tap/double-click edit · Hold drag · Z zen · ⌘K commands
+      </div>
+    </div>
+
+    <ul id="list" class="list" aria-label="To-Do List"></ul>
+
+    <div id="empty" class="empty" hidden>
+      Empty. Add a task above.<br/>
+      Tip: use <b>#tags</b> and <b>@contexts</b>. Priority / target / place are in <b>⋯</b>.
+    </div>
+  </div>
+
+  <!-- Command Palette -->
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-label="Command Palette">
+    <div class="panel">
+      <div class="panelTop">
+        <input id="cmd" class="cmd" placeholder="Search commands: sort, filter, export…" autocomplete="off" />
+        <button class="iconbtn" id="closeCmd" title="Close (Esc)">Esc</button>
+      </div>
+      <div class="cmdList" id="cmdList"></div>
+    </div>
+  </div>
+
+  <!-- Details Editor -->
+  <div class="overlay" id="editOverlay" role="dialog" aria-modal="true" aria-label="Task Details">
+    <div class="panel">
+      <div class="panelHead">
+        <h2>Task details</h2>
+        <button class="iconbtn" id="closeEdit" title="Close (Esc)">Esc</button>
+      </div>
+      <div class="form">
+        <div class="label">Task</div>
+        <input id="eText" class="field" placeholder="Task text" autocomplete="off" />
+
+        <div class="label">Priority</div>
+        <select id="ePriority" class="field" aria-label="Priority">
+          <option>Very High</option>
+          <option>High</option>
+          <option selected>Average</option>
+          <option>Low</option>
+          <option>Very Low</option>
+        </select>
+
+        <div class="label">Target (optional)</div>
+        <input id="eDue" class="field" type="datetime-local" />
+
+        <div class="label">Where (optional)</div>
+        <input id="ePlace" class="field" placeholder="Place" autocomplete="off" />
+
+        <div class="formActions">
+          <button class="ghost" id="cancelEdit">Cancel</button>
+          <button class="add" id="saveEdit">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const $ = (s, el=document) => el.querySelector(s);
+  const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+  const KEY = "todo_min_bw_v14";
+
+  const PRIORITIES = ["Very High","High","Average","Low","Very Low"];
+  const PRIORITY_SCORE = new Map([
+    ["Very High", 5], ["High", 4], ["Average", 3], ["Low", 2], ["Very Low", 1],
+  ]);
+  const clampPr = (label) => PRIORITIES.includes(label) ? label : "Average";
+  const scorePr = (label) => PRIORITY_SCORE.get(clampPr(label)) || 3;
+
+  const elIn = $("#in");
+  const elAdd = $("#add");
+  const elList = $("#list");
+  const elEmpty = $("#empty");
+  const elStat = $("#stat");
+  const elDate = $("#date");
+
+  const elCmdBtn = $("#cmdBtn");
+  const cmdOverlay = $("#overlay");
+  const elCmd = $("#cmd");
+  const elCmdList = $("#cmdList");
+  const closeCmd = $("#closeCmd");
+
+  const editOverlay = $("#editOverlay");
+  const closeEdit = $("#closeEdit");
+  const elCancelEdit = $("#cancelEdit");
+  const elSaveEdit = $("#saveEdit");
+  const elEText = $("#eText");
+  const elEPriority = $("#ePriority");
+  const elEDue = $("#eDue");
+  const elEPlace = $("#ePlace");
+  let editId = null;
+
+  let filter = "active";
+  let state = load();
+
+  function todayStr(){
+    const d = new Date();
+    const opt = { weekday:"short", year:"numeric", month:"short", day:"2-digit" };
+    return d.toLocaleDateString("en-US", opt);
+  }
+  elDate.textContent = todayStr();
+
+  function uid(){
+    return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+
+  function normalizeItem(x){
+    const now = Date.now();
+    const legacyOrder = Number.isFinite(+x?.order) ? +x.order : 0;
+
+    return {
+      id: String(x?.id || uid()),
+      text: String(x?.text || "").trim(),
+      tags: Array.isArray(x?.tags) ? x.tags.map(String) : [],
+      ctx: Array.isArray(x?.ctx) ? x.ctx.map(String) : [],
+      priority: clampPr(x?.priority || "Average"),
+      done: !!x?.done,
+      deleted: !!x?.deleted,
+      deletedAt: Number(x?.deletedAt || 0),
+      createdAt: Number(x?.createdAt || now),
+      due: typeof x?.due === "string" ? x.due : "",
+      place: typeof x?.place === "string" ? x.place : "",
+      orderA: Number.isFinite(+x?.orderA) ? +x.orderA : (legacyOrder || 0),
+      orderD: Number.isFinite(+x?.orderD) ? +x.orderD : 0,
+      orderX: Number.isFinite(+x?.orderX) ? +x.orderX : 0,
+    };
+  }
+
+  function load(){
+    try{
+      const raw =
+        localStorage.getItem(KEY) ||
+        localStorage.getItem("todo_min_bw_v13") ||
+        localStorage.getItem("todo_min_bw_v12") ||
+        localStorage.getItem("todo_min_bw_v11") ||
+        localStorage.getItem("todo_min_bw_v10");
+      if(!raw) return { items: [], zen:false };
+      const parsed = JSON.parse(raw);
+      const items = Array.isArray(parsed?.items) ? parsed.items.map(normalizeItem) : [];
+      const zen = !!parsed?.zen;
+      fixMissingOrders(items);
+      return { items, zen };
+    } catch {
+      return { items: [], zen:false };
+    }
+  }
+
+  function save(){
+    localStorage.setItem(KEY, JSON.stringify(state));
+  }
+
+  function parseText(raw){
+    const parts = raw.trim().split(/\s+/).filter(Boolean);
+    const tags = [];
+    const ctx = [];
+    const kept = [];
+    for(const p of parts){
+      if(p.startsWith("#") && p.length>1) tags.push(p);
+      else if(p.startsWith("@") && p.length>1) ctx.push(p);
+      else kept.push(p);
+    }
+    return { text: kept.join(" ").trim(), tags, ctx };
+  }
+
+  function parseDueEpoch(due){
+    if(!due || typeof due !== "string") return null;
+    const m = due.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+    if(!m) return null;
+    const y = +m[1], mo = +m[2]-1, da = +m[3], hh = +m[4], mm = +m[5];
+    const dt = new Date(y, mo, da, hh, mm, 0, 0);
+    const t = dt.getTime();
+    return Number.isFinite(t) ? t : null;
+  }
+
+  function formatDue(due){
+    const t = parseDueEpoch(due);
+    if(t === null) return "";
+    const dt = new Date(t);
+    const opt = { weekday:"short", month:"short", day:"2-digit", hour:"2-digit", minute:"2-digit" };
+    return dt.toLocaleString("en-US", opt).replace(",", "");
+  }
+
+  function formatAdded(ts){
+    const dt = new Date(ts);
+    if(Number.isNaN(dt.getTime())) return "";
+    const opt = { weekday:"short", month:"short", day:"2-digit" };
+    return dt.toLocaleDateString("en-US", opt);
+  }
+
+  function bucketKeyForFilter(f){
+    if(f === "done") return "orderD";
+    if(f === "deleted") return "orderX";
+    return "orderA";
+  }
+
+  function maxOrderInBucket(bucketKey){
+    let max = 0;
+    for(const it of state.items){
+      const ok = it[bucketKey] || 0;
+      if(ok > max) max = ok;
+    }
+    return max;
+  }
+
+  function fixMissingOrders(items){
+    let maxA = items.reduce((m,it)=>Math.max(m, it.orderA||0), 0);
+    if(maxA === 0){
+      let k=10;
+      for(const it of items){
+        if(!it.done && !it.deleted) it.orderA = k, k+=10;
+      }
+    }
+    let maxD = items.reduce((m,it)=>Math.max(m, it.orderD||0), 0);
+    if(maxD === 0){
+      let k=10;
+      for(const it of items){
+        if(it.done && !it.deleted) it.orderD = k, k+=10;
+      }
+    }
+    let maxX = items.reduce((m,it)=>Math.max(m, it.orderX||0), 0);
+    if(maxX === 0){
+      let k=10;
+      for(const it of items){
+        if(it.deleted) it.orderX = k, k+=10;
+      }
+    }
+  }
+
+  function stable(a,b, key){
+    return ((a[key]||0) - (b[key]||0)) || (a.createdAt - b.createdAt);
+  }
+
+  function visibleItemsBase(){
+    if(filter==="active") return state.items.filter(x=>!x.deleted && !x.done);
+    if(filter==="done") return state.items.filter(x=>!x.deleted && x.done);
+    if(filter==="deleted") return state.items.filter(x=>x.deleted);
+    return state.items.filter(x=>!x.deleted && !x.done);
+  }
+
+  function visibleItems(){
+    const key = bucketKeyForFilter(filter);
+    return visibleItemsBase().slice().sort((a,b)=>stable(a,b,key));
+  }
+
+  function updateStats(){
+    const total = state.items.filter(x=>!x.deleted).length;
+    const done = state.items.filter(x=>!x.deleted && x.done).length;
+    elStat.textContent = `${done}/${total}`;
+  }
+
+  function applyZenState(){
+    document.body.classList.toggle("zen", !!state.zen);
+  }
+  function toggleZen(){
+    state.zen = !state.zen;
+    save();
+    applyZenState();
+  }
+
+  function addTask(raw){
+    const { text, tags, ctx } = parseText(raw);
+    if(!text) return;
+
+    const item = normalizeItem({
+      id: uid(),
+      text, tags, ctx,
+      priority: "Average",
+      done:false,
+      deleted:false,
+      createdAt: Date.now()
+    });
+
+    item.orderA = maxOrderInBucket("orderA") + 10;
+    state.items.push(item);
+    save();
+    elIn.value = "";
+    elAdd.disabled = true;
+    render();
+  }
+
+  function toggleDone(id){
+    const it = state.items.find(x=>x.id===id);
+    if(!it || it.deleted) return;
+
+    if(it.done){
+      it.done = false;
+      it.orderA = maxOrderInBucket("orderA") + 10;
+    } else {
+      it.done = true;
+      it.orderD = maxOrderInBucket("orderD") + 10;
+    }
+    save();
+    render();
+  }
+
+  function softDelete(id){
+    const it = state.items.find(x=>x.id===id);
+    if(!it) return;
+    it.deleted = true;
+    it.deletedAt = Date.now();
+    it.orderX = maxOrderInBucket("orderX") + 10;
+    save();
+    render();
+  }
+
+  function restore(id){
+    const it = state.items.find(x=>x.id===id);
+    if(!it) return;
+    it.deleted = false;
+    it.deletedAt = 0;
+    it.done = false;
+    it.orderA = maxOrderInBucket("orderA") + 10;
+    save();
+    render();
+  }
+
+  function purge(id){
+    const i = state.items.findIndex(x=>x.id===id);
+    if(i<0) return;
+    state.items.splice(i,1);
+    save();
+    render();
+  }
+
+  function cyclePriority(id){
+    const it = state.items.find(x=>x.id===id);
+    if(!it || it.deleted) return;
+    const i = PRIORITIES.indexOf(it.priority);
+    it.priority = PRIORITIES[(Math.max(0,i) + 1) % PRIORITIES.length];
+    save(); render();
+  }
+
+  function openEditor(id){
+    const it = state.items.find(x=>x.id===id);
+    if(!it || it.deleted) return;
+    editId = id;
+    elEText.value = it.text || "";
+    elEPriority.value = clampPr(it.priority);
+    elEDue.value = it.due || "";
+    elEPlace.value = it.place || "";
+    editOverlay.classList.add("on");
+    setTimeout(()=> elEText.focus(), 0);
+  }
+
+  function closeEditor(){
+    editOverlay.classList.remove("on");
+    editId = null;
+  }
+
+  function saveEditor(){
+    if(!editId) return;
+    const it = state.items.find(x=>x.id===editId);
+    if(!it) return;
+
+    const parsed = parseText(elEText.value);
+    it.text = parsed.text;
+    it.tags = parsed.tags;
+    it.ctx = parsed.ctx;
+    it.priority = clampPr(elEPriority.value);
+    it.due = elEDue.value || "";
+    it.place = (elEPlace.value || "").trim();
+
+    save();
+    closeEditor();
+    render();
+  }
+
+  function syncFilterButtons(){
+    $$(".seg button").forEach(b=>{
+      b.classList.toggle("active", b.dataset.filter === filter);
+    });
+  }
+
+  function commitOrderFromDOM(){
+    const key = bucketKeyForFilter(filter);
+    const domIds = [...elList.querySelectorAll(".item")].map(n=>n.dataset.id);
+    let k = 10;
+    for(const id of domIds){
+      const it = state.items.find(x=>x.id===id);
+      if(it) it[key] = k, k += 10;
+    }
+    save();
+    render();
+  }
+
+  function applySortToCurrentList(mode){
+    const key = bucketKeyForFilter(filter);
+    const items = visibleItemsBase().slice();
+    const byCurrent = items.slice().sort((a,b)=>stable(a,b,key));
+    const sorted = byCurrent.slice();
+
+    if(mode === "task_asc" || mode === "task_desc"){
+      const dir = (mode === "task_asc") ? 1 : -1;
+      sorted.sort((a,b)=>{
+        const ta = (a.text||"").trim().toLowerCase();
+        const tb = (b.text||"").trim().toLowerCase();
+        return ta.localeCompare(tb)*dir || stable(a,b,key);
+      });
+    } else if(mode === "priority_desc"){
+      sorted.sort((a,b)=> (scorePr(b.priority)-scorePr(a.priority)) || stable(a,b,key));
+    } else if(mode === "priority_asc"){
+      sorted.sort((a,b)=> (scorePr(a.priority)-scorePr(b.priority)) || stable(a,b,key));
+    } else if(mode === "created_desc"){
+      sorted.sort((a,b)=> (b.createdAt-a.createdAt) || stable(a,b,key));
+    } else if(mode === "created_asc"){
+      sorted.sort((a,b)=> (a.createdAt-b.createdAt) || stable(a,b,key));
+    } else if(mode === "due_asc" || mode === "due_desc"){
+      const dir = (mode === "due_asc") ? 1 : -1;
+      sorted.sort((a,b)=>{
+        const ta = parseDueEpoch(a.due);
+        const tb = parseDueEpoch(b.due);
+        if(ta === null && tb === null) return stable(a,b,key);
+        if(ta === null) return 1;
+        if(tb === null) return -1;
+        return (ta - tb)*dir || stable(a,b,key);
+      });
+    } else if(mode === "place_asc" || mode === "place_desc"){
+      const dir = (mode === "place_asc") ? 1 : -1;
+      sorted.sort((a,b)=>{
+        const pa = (a.place||"").trim().toLowerCase();
+        const pb = (b.place||"").trim().toLowerCase();
+        if(!pa && !pb) return stable(a,b,key);
+        if(!pa) return 1;
+        if(!pb) return -1;
+        return pa.localeCompare(pb)*dir || stable(a,b,key);
+      });
+    }
+
+    let k = 10;
+    for(const it of sorted){
+      it[key] = k; k += 10;
+    }
+    save();
+    render();
+  }
+
+  function chip(text, clickable=false){
+    const c = document.createElement("span");
+    c.className = "chip" + (clickable ? " clickable" : "");
+    c.textContent = text;
+    return c;
+  }
+
+  function svgGrip(){
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="8" cy="7" r="2" fill="currentColor"></circle>
+        <circle cx="16" cy="7" r="2" fill="currentColor"></circle>
+        <circle cx="8" cy="12" r="2" fill="currentColor"></circle>
+        <circle cx="16" cy="12" r="2" fill="currentColor"></circle>
+        <circle cx="8" cy="17" r="2" fill="currentColor"></circle>
+        <circle cx="16" cy="17" r="2" fill="currentColor"></circle>
+      </svg>`;
+  }
+
+  function svgDone(){
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M9.3 16.2 5.6 12.5l1.4-1.4 2.3 2.3 7.7-7.7 1.4 1.4z" fill="currentColor"></path>
+      </svg>`;
+  }
+  function svgUndo(){
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 7v4h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M7 11c1.2-3.6 4.6-6 8.6-5.5 3.7.4 6.6 3.5 6.4 7.3-.2 3.9-3.4 7.1-7.3 7.2-3.1.1-5.9-1.7-7-4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>`;
+  }
+  function svgX(){
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 7l10 10M17 7 7 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+      </svg>`;
+  }
+  function svgMore(){
+    return `
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <circle cx="6.5" cy="12" r="1.6" fill="currentColor"></circle>
+        <circle cx="12" cy="12" r="1.6" fill="currentColor"></circle>
+        <circle cx="17.5" cy="12" r="1.6" fill="currentColor"></circle>
+      </svg>`;
+  }
+
+  function render(){
+    const items = visibleItems();
+    elList.innerHTML = "";
+    elEmpty.hidden = !(state.items.length === 0);
+
+    for(const it of items){
+      const li = document.createElement("li");
+      li.className = "item";
+      li.dataset.id = it.id;
+
+      const grip = document.createElement("div");
+      grip.className = "grip";
+      grip.title = "Hold and drag to reorder";
+      grip.innerHTML = svgGrip();
+      li.appendChild(grip);
+
+      const main = document.createElement("div");
+      main.className = "main";
+
+      const p = document.createElement("p");
+      p.className = "text" + (it.deleted ? " deleted" : (it.done ? " done" : ""));
+      p.textContent = it.text || "(empty task)";
+      p.title = it.deleted ? "Restore to edit" : "Double-click / double-tap to edit";
+      p.addEventListener("dblclick", () => { if(!it.deleted) openEditor(it.id); });
+
+      let lastTap = 0;
+      p.addEventListener("touchend", () => {
+        const now = Date.now();
+        if(now - lastTap < 320){
+          if(!it.deleted) openEditor(it.id);
+        }
+        lastTap = now;
+      }, {passive:true});
+
+      const meta = document.createElement("div");
+      meta.className = "meta";
+
+      const prChip = chip(it.priority, !it.deleted);
+      prChip.title = "Click to change priority";
+      if(!it.deleted){
+        prChip.classList.add("clickable");
+        prChip.addEventListener("click", () => cyclePriority(it.id));
+      }
+      meta.appendChild(prChip);
+
+      for(const t of (it.tags||[])) meta.appendChild(chip(t));
+      for(const c0 of (it.ctx||[])) meta.appendChild(chip(c0));
+
+      const added = formatAdded(it.createdAt);
+      if(added) meta.appendChild(chip("Added " + added));
+      if(it.due) meta.appendChild(chip("Target " + formatDue(it.due)));
+      if(it.place) meta.appendChild(chip("@ " + it.place));
+
+      main.appendChild(p);
+      if(meta.childNodes.length) main.appendChild(meta);
+
+      const ra = document.createElement("div");
+      ra.className = "rowActions";
+
+      if(it.deleted){
+        const bUndo = document.createElement("button");
+        bUndo.className = "ibtn";
+        bUndo.title = "Restore";
+        bUndo.innerHTML = svgUndo();
+        bUndo.addEventListener("click", () => restore(it.id));
+
+        const bPurge = document.createElement("button");
+        bPurge.className = "ibtn";
+        bPurge.title = "Delete permanently";
+        bPurge.innerHTML = svgX();
+        bPurge.addEventListener("click", () => purge(it.id));
+
+        ra.appendChild(bUndo);
+        ra.appendChild(bPurge);
+      } else {
+        const bDetails = document.createElement("button");
+        bDetails.className = "ibtn";
+        bDetails.title = "Details (priority / target / place)";
+        bDetails.innerHTML = svgMore();
+        bDetails.addEventListener("click", () => openEditor(it.id));
+
+        const bToggle = document.createElement("button");
+        bToggle.className = "ibtn";
+        bToggle.title = it.done ? "Send back to Active" : "Mark as Done";
+        bToggle.innerHTML = it.done ? svgUndo() : svgDone();
+        bToggle.addEventListener("click", () => toggleDone(it.id));
+
+        const bX = document.createElement("button");
+        bX.className = "ibtn";
+        bX.title = "Move to Deleted";
+        bX.innerHTML = svgX();
+        bX.addEventListener("click", () => softDelete(it.id));
+
+        ra.appendChild(bDetails);
+        ra.appendChild(bToggle);
+        ra.appendChild(bX);
+      }
+
+      li.appendChild(main);
+      li.appendChild(ra);
+      elList.appendChild(li);
+
+      attachReorder(grip, li);
+    }
+
+    updateStats();
+    applyZenState();
+    syncFilterButtons();
+  }
+
+  // Reorder (mobile + web): pointer-based, hold to drag
+  function attachReorder(gripEl, liEl){
+    gripEl.onpointerdown = (e) => {
+      if(e.button !== undefined && e.button !== 0) return;
+
+      gripEl.setPointerCapture(e.pointerId);
+      const startY = e.clientY;
+      const startX = e.clientX;
+
+      const holdMs = 140;
+      let armed = true;
+      let started = false;
+
+      const holdTimer = setTimeout(() => {
+        if(!armed) return;
+        started = true;
+        liEl.classList.add("dragging");
+        document.body.style.userSelect = "none";
+        document.body.style.webkitUserSelect = "none";
+      }, holdMs);
+
+      const onMove = (ev) => {
+        if(ev.pointerId !== e.pointerId) return;
+
+        const dy = Math.abs(ev.clientY - startY);
+        const dx = Math.abs(ev.clientX - startX);
+        if(!started){
+          if(dy > 10 || dx > 10){
+            armed = false;
+            clearTimeout(holdTimer);
+          }
+          return;
+        }
+
+        ev.preventDefault();
+
+        const all = [...elList.querySelectorAll(".item")];
+        const over = all.find(node=>{
+          const r = node.getBoundingClientRect();
+          return ev.clientY >= r.top && ev.clientY <= r.bottom;
+        });
+        if(over && over !== liEl){
+          const overRect = over.getBoundingClientRect();
+          const insertBefore = ev.clientY < (overRect.top + overRect.height/2);
+          if(insertBefore){
+            elList.insertBefore(liEl, over);
+          } else {
+            elList.insertBefore(liEl, over.nextSibling);
+          }
+        }
+      };
+
+      const onUp = (ev) => {
+        if(ev.pointerId !== e.pointerId) return;
+        clearTimeout(holdTimer);
+        try{ gripEl.releasePointerCapture(e.pointerId); }catch{}
+        window.removeEventListener("pointermove", onMove, {passive:false});
+        window.removeEventListener("pointerup", onUp, {passive:true});
+        window.removeEventListener("pointercancel", onUp, {passive:true});
+
+        if(started){
+          liEl.classList.remove("dragging");
+          document.body.style.userSelect = "";
+          document.body.style.webkitUserSelect = "";
+          commitOrderFromDOM();
+        }
+      };
+
+      window.addEventListener("pointermove", onMove, {passive:false});
+      window.addEventListener("pointerup", onUp, {passive:true});
+      window.addEventListener("pointercancel", onUp, {passive:true});
+    };
+  }
+
+  // Command Palette
+  const COMMANDS = () => ([
+    {name:"Filter: Active", desc:"Show active tasks", key:"", run:()=>setFilter("active")},
+    {name:"Filter: Done", desc:"Show done tasks", key:"", run:()=>setFilter("done")},
+    {name:"Filter: Deleted", desc:"Show deleted tasks", key:"", run:()=>setFilter("deleted")},
+    {name: state.zen ? "Zen: Off" : "Zen: On", desc:"Toggle zen mode", key:"Z", run:()=>{toggleZen();}},
+    {name:"Rank: Task A→Z", desc:"Alphabetical (A to Z) — ranks current list", key:"", run:()=>applySortToCurrentList("task_asc")},
+    {name:"Rank: Task Z→A", desc:"Alphabetical (Z to A) — ranks current list", key:"", run:()=>applySortToCurrentList("task_desc")},
+    {name:"Rank: Priority ↓", desc:"Very High to Very Low — ranks current list", key:"", run:()=>applySortToCurrentList("priority_desc")},
+    {name:"Rank: Priority ↑", desc:"Very Low to Very High — ranks current list", key:"", run:()=>applySortToCurrentList("priority_asc")},
+    {name:"Rank: Target ↑", desc:"Earliest target first — ranks current list", key:"", run:()=>applySortToCurrentList("due_asc")},
+    {name:"Rank: Target ↓", desc:"Latest target first — ranks current list", key:"", run:()=>applySortToCurrentList("due_desc")},
+    {name:"Rank: Added ↓", desc:"Newest first — ranks current list", key:"", run:()=>applySortToCurrentList("created_desc")},
+    {name:"Rank: Added ↑", desc:"Oldest first — ranks current list", key:"", run:()=>applySortToCurrentList("created_asc")},
+    {name:"Rank: Place A→Z", desc:"Place alphabetical — ranks current list", key:"", run:()=>applySortToCurrentList("place_asc")},
+    {name:"Rank: Place Z→A", desc:"Place reverse alphabetical — ranks current list", key:"", run:()=>applySortToCurrentList("place_desc")},
+  ]);
+
+  function openCmd(){
+    cmdOverlay.classList.add("on");
+    elCmd.value = "";
+    renderCmdList();
+    setTimeout(()=> elCmd.focus(), 0);
+  }
+  function closeCmdPalette(){
+    cmdOverlay.classList.remove("on");
+  }
+
+  function renderCmdList(){
+    const q = (elCmd.value || "").trim().toLowerCase();
+    const cmds = COMMANDS().filter(c=>{
+      if(!q) return true;
+      return (c.name+" "+c.desc).toLowerCase().includes(q);
+    });
+
+    elCmdList.innerHTML = "";
+    for(const c of cmds){
+      const row = document.createElement("div");
+      row.className = "cmdItem";
+      row.innerHTML = `
+        <div>
+          <div class="cmdName">${escapeHtml(c.name)}</div>
+          <div class="cmdDesc">${escapeHtml(c.desc)}</div>
+        </div>
+        <div class="cmdKey">${escapeHtml(c.key || "")}</div>
+      `;
+      row.addEventListener("click", ()=>{
+        c.run();
+        closeCmdPalette();
+      });
+      elCmdList.appendChild(row);
+    }
+  }
+
+  function setFilter(f){ filter = f; render(); }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+    }[m]));
+  }
+
+  // Events
+  elIn.addEventListener("input", ()=>{ elAdd.disabled = !elIn.value.trim(); });
+  elIn.addEventListener("keydown", (e)=>{ if(e.key === "Enter"){ e.preventDefault(); addTask(elIn.value); }});
+  elAdd.addEventListener("click", ()=> addTask(elIn.value));
+
+  $$(".seg button").forEach(b=> b.addEventListener("click", ()=> setFilter(b.dataset.filter)));
+
+  elCmdBtn.addEventListener("click", ()=> openCmd());
+  closeCmd.addEventListener("click", ()=> closeCmdPalette());
+  cmdOverlay.addEventListener("click", (e)=>{ if(e.target === cmdOverlay) closeCmdPalette(); });
+  elCmd.addEventListener("input", renderCmdList);
+  elCmd.addEventListener("keydown", (e)=>{ if(e.key === "Escape") closeCmdPalette(); });
+
+  closeEdit.addEventListener("click", closeEditor);
+  elCancelEdit.addEventListener("click", closeEditor);
+  elSaveEdit.addEventListener("click", saveEditor);
+  editOverlay.addEventListener("click", (e)=>{ if(e.target === editOverlay) closeEditor(); });
+
+  window.addEventListener("keydown", (e)=>{
+    const isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+    const cmdK = (isMac && e.metaKey && e.key.toLowerCase() === "k") || (!isMac && e.ctrlKey && e.key.toLowerCase() === "k");
+    if(cmdK){ e.preventDefault(); cmdOverlay.classList.contains("on") ? closeCmdPalette() : openCmd(); return; }
+
+    if(e.key.toLowerCase() === "z" && !cmdOverlay.classList.contains("on") && !editOverlay.classList.contains("on")){
+      toggleZen(); return;
+    }
+    if(e.key === "Escape"){
+      if(cmdOverlay.classList.contains("on")) closeCmdPalette();
+      if(editOverlay.classList.contains("on")) closeEditor();
+    }
+  });
+
+  applyZenState();
+  render();
+})();
+</script>
+</body>
+</html>
